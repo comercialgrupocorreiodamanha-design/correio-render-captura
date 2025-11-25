@@ -20,7 +20,8 @@ SERVICE_ACCOUNT_FILE = "service-account.json"
 def captura_desktop(playwright):
     browser = playwright.chromium.launch()
     page = browser.new_page(viewport={"width": 1920, "height": 1080})
-    page.goto(URL, wait_until="networkidle")
+    page.goto(URL, wait_until="domcontentloaded", timeout=120000)
+page.wait_for_timeout(5000)
     filename = f"Correio_Desktop_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     page.screenshot(path=filename, full_page=True)
     browser.close()
@@ -32,7 +33,8 @@ def captura_mobile(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(**iphone)
     page = context.new_page()
-    page.goto(URL, wait_until="networkidle")
+    page.goto(URL, wait_until="domcontentloaded", timeout=120000)
+page.wait_for_timeout(5000)  # garante estabilização final
     filename = f"Correio_Mobile_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     page.screenshot(path=filename, full_page=True)
     browser.close()
