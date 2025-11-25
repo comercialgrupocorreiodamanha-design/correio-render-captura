@@ -5,25 +5,39 @@ from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+
 from playwright.sync_api import sync_playwright
 from email.message import EmailMessage
 
 
+# --------------------------------------------------------------------
+# CONFIGURAÇÕES
+# --------------------------------------------------------------------
+
 URL = "https://www.correiodamanha.com.br"
+
 DRIVE_FOLDER_ID = "1bkp5Jz6hiP_KYFBPBX1cf_2zhQcGsic4"
+
 EMAIL_DESTINO = "patrick@correiodamanha.net.br"
 EMAIL_ORIGEM = "no-reply@correiodamanha.net.br"
 
 SERVICE_ACCOUNT_FILE = "service-account.json"
 
 
+# --------------------------------------------------------------------
+# FUNÇÕES DE CAPTURA
+# --------------------------------------------------------------------
+
 def captura_desktop(playwright):
     browser = playwright.chromium.launch()
     page = browser.new_page(viewport={"width": 1920, "height": 1080})
+
     page.goto(URL, wait_until="domcontentloaded", timeout=120000)
-page.wait_for_timeout(5000)
+    page.wait_for_timeout(5000)
+
     filename = f"Correio_Desktop_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     page.screenshot(path=filename, full_page=True)
+
     browser.close()
     return filename
 
@@ -33,13 +47,20 @@ def captura_mobile(playwright):
     browser = playwright.chromium.launch()
     context = browser.new_context(**iphone)
     page = context.new_page()
+
     page.goto(URL, wait_until="domcontentloaded", timeout=120000)
-page.wait_for_timeout(5000)  # garante estabilização final
+    page.wait_for_timeout(5000)
+
     filename = f"Correio_Mobile_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     page.screenshot(path=filename, full_page=True)
+
     browser.close()
     return filename
 
+
+# --------------------------------------------------------------------
+# UPLOAD PARA GOOGLE DRIVE
+# --------------------------------------------------------------------
 
 def upload_drive(filepath):
     creds = service_account.Credentials.from_service_account_file(
@@ -52,6 +73,7 @@ def upload_drive(filepath):
         "name": os.path.basename(filepath),
         "parents": [DRIVE_FOLDER_ID]
     }
+
     media = MediaFileUpload(filepath, mimetype="image/png")
 
     result = service.files().create(
@@ -62,6 +84,10 @@ def upload_drive(filepath):
 
     return result.get("id")
 
+
+# --------------------------------------------------------------------
+# ENVIO DE E-MAIL VIA GMAIL API
+# --------------------------------------------------------------------
 
 def enviar_email(filepaths):
     creds = service_account.Credentials.from_service_account_file(
@@ -87,13 +113,17 @@ def enviar_email(filepaths):
             filename=os.path.basename(fp)
         )
 
-    encoded = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    raw_msg = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
     service.users().messages().send(
         userId="me",
-        body={"raw": encoded}
+        body={"raw": raw_msg}
     ).execute()
 
+
+# --------------------------------------------------------------------
+# MAIN
+# --------------------------------------------------------------------
 
 def main():
     with sync_playwright() as p:
@@ -102,6 +132,7 @@ def main():
 
     upload_drive(desktop)
     upload_drive(mobile)
+
     enviar_email([desktop, mobile])
 
     print("✔ Capturas realizadas, enviadas e salvas no Drive.")
